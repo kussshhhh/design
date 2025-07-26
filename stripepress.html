@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Book Showcase - Three.js</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1418;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            cursor: default;
+        }
+
+        #canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Logo */
+        .logo {
+            position: fixed;
+            top: 30px;
+            left: 30px;
+            z-index: 100;
+            color: #f0f0f0;
+            pointer-events: none;
+        }
+
+        .logo .number {
+            font-size: 32px;
+            font-weight: 200;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            border: 1px solid #f0f0f0;
+            border-radius: 50%;
+            margin-bottom: 10px;
+        }
+
+        .logo .text {
+            font-size: 16px;
+            font-weight: 500;
+            letter-spacing: 1px;
+        }
+
+        .logo .tagline {
+            font-size: 12px;
+            font-style: italic;
+            opacity: 0.7;
+            margin-top: 2px;
+        }
+
+        /* Navigation bars */
+        .nav-indicators {
+            position: fixed;
+            left: 30px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 100;
+        }
+
+        .nav-bar {
+            width: 35px;
+            height: 1px;
+            background: #4a4a4a;
+            margin: 12px 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            opacity: 0.5;
+        }
+
+        .nav-bar::before {
+            content: '';
+            position: absolute;
+            left: -10px;
+            top: -12px;
+            bottom: -12px;
+            right: -10px;
+        }   opacity: 0.5;
+        }
+
+        .nav-bar::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: -10px;
+            bottom: -10px;
+            right: 0;
+        }
+
+        .nav-bar.active {
+            background: #f0f0f0;
+            width: 50px;
+            height: 2px;
+            box-shadow: 0 0 15px rgba(240, 240, 240, 0.5);
+            opacity: 1;
+        }
+
+        .nav-bar.hover {
+            background: #f0f0f0;
+            width: 45px;
+            opacity: 0.9;
+        }
+
+        .nav-bar.nearby {
+            opacity: 0.7;
+            width: 40px;
+        }
+
+        /* Book title on hover */
+        .nav-bar .book-title {
+            position: absolute;
+            left: 60px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #f0f0f0;
+            font-size: 14px;
+            font-weight: 500;
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            letter-spacing: 0.5px;
+        }
+
+        .nav-bar:hover .book-title,
+        .nav-bar.hover .book-title {
+            opacity: 1;
+        }
+
+        /* Question mark */
+        .question-mark {
+            position: fixed;
+            bottom: 30px;
+            left: 35px;
+            font-size: 24px;
+            color: #f0f0f0;
+            cursor: pointer;
+            z-index: 100;
+            transition: opacity 0.3s;
+            font-weight: 300;
+        }
+
+        .question-mark:hover {
+            opacity: 0.7;
+        }
+
+        /* Loading */
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #f0f0f0;
+            font-size: 14px;
+            letter-spacing: 2px;
+            z-index: 200;
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">LOADING...</div>
+    <canvas id="canvas"></canvas>
+
+    <!-- UI Elements -->
+    <div class="logo">
+        <div class="number">9</div>
+        <div class="text">Stripe Press</div>
+        <div class="tagline">Ideas for progress</div>
+    </div>
+
+    <div class="nav-indicators">
+        <div class="nav-bar" data-section="0">
+            <span class="book-title">The Scaling Era</span>
+        </div>
+        <div class="nav-bar" data-section="1">
+            <span class="book-title">BOOM</span>
+        </div>
+        <div class="nav-bar" data-section="2">
+            <span class="book-title">Poor Charlie's Almanack</span>
+        </div>
+        <div class="nav-bar" data-section="3">
+            <span class="book-title">SCALING PEOPLE</span>
+        </div>
+        <div class="nav-bar" data-section="4">
+            <span class="book-title">Pieces of the Action</span>
+        </div>
+        <div class="nav-bar" data-section="5">
+            <span class="book-title">WHERE IS MY FLYING CAR?</span>
+        </div>
+        <div class="nav-bar" data-section="6">
+            <span class="book-title">The Big Score</span>
+        </div>
+    </div>
+
+    <div class="question-mark">?</div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ 
+            canvas: document.getElementById('canvas'),
+            antialias: true,
+            alpha: true
+        });
+        
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        // Camera position
+        camera.position.set(0, 0, 15);
+        camera.lookAt(0, 0, 0);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
+        directionalLight.position.set(5, 10, 5);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+
+        const backLight = new THREE.DirectionalLight(0xffffff, 0.2);
+        backLight.position.set(-5, -5, -5);
+        scene.add(backLight);
+
+        // Book data
+        const booksData = [
+            {
+                author: "Dwarkesh Patel\nwith Gavin Leech",
+                title: "The Scaling Era:\nAn Oral History of AI, 2019-2025",
+                spineColor: 0x5a5a5a,
+                topColor: 0x4a4a4a,
+                textColor: 0xf0f0f0
+            },
+            {
+                author: "Hobart and Huber",
+                title: "BOOM",
+                spineColor: 0x8b3a62,
+                topColor: 0x7a2f52,
+                textColor: 0xf0f0f0,
+                hasPattern: true
+            },
+            {
+                author: "PETER D. KAUFMAN",
+                title: "Poor Charlie's Almanack",
+                spineColor: 0xd4c896,
+                topColor: 0x3333ff,
+                textColor: 0x333333,
+                hasBluePattern: true
+            },
+            {
+                author: "Claire Hughes Johnson",
+                title: "SCALING PEOPLE",
+                spineColor: 0xa08060,
+                topColor: 0x907050,
+                textColor: 0xf0f0f0,
+                hasBlueAccent: true
+            },
+            {
+                author: "Vannevar Bush",
+                title: "Pieces of the Action",
+                spineColor: 0x2a2a2a,
+                topColor: 0x1a1a1a,
+                textColor: 0xf0f0f0,
+                hasColorfulTop: true
+            },
+            {
+                author: "J. STORRS HALL",
+                title: "WHERE IS MY FLYING CAR?",
+                spineColor: 0x7fb8d0,
+                topColor: 0x00cccc,
+                textColor: 0x333333,
+                hasSplitTop: true
+            },
+            {
+                author: "Michael S. Malone",
+                title: "The Big Score",
+                spineColor: 0x3a4a7a,
+                topColor: 0xff4400,
+                textColor: 0xf0f0f0,
+                hasCircuitPattern: true
+            }
+        ];
+
+        // Create books
+        const books = [];
+        const bookGroup = new THREE.Group();
+
+        function createBook(bookData, index) {
+            const bookWidth = 8;
+            const bookHeight = 1.2;
+            const bookDepth = 5;
+
+            const group = new THREE.Group();
+
+            // Book geometry
+            const spineGeometry = new THREE.BoxGeometry(bookWidth, bookHeight, bookDepth);
+            
+            // Create materials
+            const materials = [];
+
+            // Right side (empty)
+            materials.push(new THREE.MeshPhongMaterial({ color: bookData.spineColor }));
+            
+            // Left side (empty)
+            materials.push(new THREE.MeshPhongMaterial({ color: bookData.spineColor }));
+            
+            // Top (special patterns)
+            if (bookData.hasBluePattern) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 256;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#d4c896';
+                ctx.fillRect(0, 0, 512, 256);
+                ctx.fillStyle = '#3344ff';
+                ctx.fillRect(0, 0, 512, 100);
+                const topTexture = new THREE.CanvasTexture(canvas);
+                materials.push(new THREE.MeshPhongMaterial({ map: topTexture }));
+            } else if (bookData.hasSplitTop) {
+                const canvas = document.createElement('canvas');
+                canvas.width = 512;
+                canvas.height = 256;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#00cccc';
+                ctx.fillRect(0, 0, 256, 256);
+                ctx.fillStyle = '#888888';
+                ctx.fillRect(256, 0, 256, 256);
+                const topTexture = new THREE.CanvasTexture(canvas);
+                materials.push(new THREE.MeshPhongMaterial({ map: topTexture }));
+            } else if (bookData.hasCircuitPattern) {
+                materials.push(new THREE.MeshPhongMaterial({ color: bookData.topColor }));
+            } else if (bookData.hasColorfulTop) {
+                materials.push(new THREE.MeshPhongMaterial({ color: 0x666666 }));
+            } else {
+                materials.push(new THREE.MeshPhongMaterial({ color: bookData.topColor }));
+            }
+            
+            // Bottom
+            materials.push(new THREE.MeshPhongMaterial({ color: bookData.topColor }));
+            
+            // Front (spine with text)
+            const spineCanvas = document.createElement('canvas');
+            spineCanvas.width = 1024;
+            spineCanvas.height = 256;
+            const spineCtx = spineCanvas.getContext('2d');
+            
+            // Background
+            spineCtx.fillStyle = `#${bookData.spineColor.toString(16).padStart(6, '0')}`;
+            spineCtx.fillRect(0, 0, 1024, 256);
+
+            // Add patterns for specific books
+            if (bookData.hasPattern) {
+                // Pink book with dots
+                spineCtx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                for (let i = 0; i < 50; i++) {
+                    spineCtx.beginPath();
+                    spineCtx.arc(Math.random() * 1024, Math.random() * 256, 3, 0, Math.PI * 2);
+                    spineCtx.fill();
+                }
+            }
+
+            if (bookData.hasBlueAccent) {
+                spineCtx.fillStyle = '#3344ff';
+                spineCtx.fillRect(400, 0, 200, 256);
+            }
+
+            // Text
+            spineCtx.fillStyle = `#${bookData.textColor.toString(16).padStart(6, '0')}`;
+            spineCtx.font = '24px Arial';
+            spineCtx.fillText(bookData.author, 50, 80);
+            
+            spineCtx.font = 'bold 32px Arial';
+            spineCtx.fillText(bookData.title, 400, 80);
+
+            // Publisher logo
+            spineCtx.strokeStyle = spineCtx.fillStyle;
+            spineCtx.lineWidth = 2;
+            spineCtx.beginPath();
+            spineCtx.arc(920, 128, 40, 0, Math.PI * 2);
+            spineCtx.stroke();
+            spineCtx.font = '24px Arial';
+            spineCtx.textAlign = 'center';
+            spineCtx.fillText('SP', 920, 138);
+
+            const spineTexture = new THREE.CanvasTexture(spineCanvas);
+            materials.push(new THREE.MeshPhongMaterial({ map: spineTexture }));
+            
+            // Back
+            materials.push(new THREE.MeshPhongMaterial({ color: bookData.spineColor }));
+
+            const book = new THREE.Mesh(spineGeometry, materials);
+            book.castShadow = true;
+            book.receiveShadow = true;
+            
+            // Position books in stack
+            book.position.y = (index - 3) * 2.5;
+            book.rotation.x = -0.2;
+            
+            group.add(book);
+            group.userData = { index, baseY: book.position.y };
+            
+            return group;
+        }
+
+        // Create all books
+        booksData.forEach((bookData, index) => {
+            const book = createBook(bookData, index);
+            books.push(book);
+            bookGroup.add(book);
+        });
+
+        scene.add(bookGroup);
+
+        // Scroll handling
+        let currentSection = 0;
+        let targetY = 0;
+        let scrollProgress = 0;
+        let hoveredBar = -1;
+
+        function updateNavigation(section, hoverIndex = -1) {
+            const navBars = document.querySelectorAll('.nav-bar');
+            
+            navBars.forEach((bar, index) => {
+                bar.classList.remove('active', 'hover', 'nearby');
+                
+                // Current active book
+                if (index === section) {
+                    bar.classList.add('active');
+                }
+                
+                // Hovered bar
+                if (index === hoverIndex) {
+                    bar.classList.add('hover');
+                }
+                
+                // Gradient effect based on distance
+                const distance = Math.abs(index - section);
+                const hoverDistance = hoverIndex >= 0 ? Math.abs(index - hoverIndex) : Infinity;
+                const minDistance = Math.min(distance, hoverDistance);
+                
+                if (minDistance === 1) {
+                    bar.classList.add('nearby');
+                }
+                
+                // Adjust opacity based on distance
+                if (minDistance <= 2 && minDistance > 0) {
+                    bar.style.opacity = 0.6 + (0.4 / (minDistance + 1));
+                    bar.style.width = `${40 - minDistance * 3}px`;
+                }
+            });
+        }
+
+        // Nav bar hover effects
+        document.querySelectorAll('.nav-bar').forEach((bar, index) => {
+            bar.addEventListener('mouseenter', () => {
+                hoveredBar = index;
+                updateNavigation(currentSection, hoveredBar);
+            });
+            
+            bar.addEventListener('mouseleave', () => {
+                hoveredBar = -1;
+                updateNavigation(currentSection);
+            });
+        });
+
+        // Scroll event
+        window.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            
+            if (e.deltaY > 0 && currentSection < books.length - 1) {
+                currentSection++;
+            } else if (e.deltaY < 0 && currentSection > 0) {
+                currentSection--;
+            }
+            
+            targetY = books[currentSection].userData.baseY;
+            updateNavigation(currentSection);
+        }, { passive: false });
+
+        // Navigation click
+        document.querySelectorAll('.nav-bar').forEach((bar, index) => {
+            bar.addEventListener('click', () => {
+                currentSection = index;
+                targetY = books[currentSection].userData.baseY;
+                updateNavigation(currentSection);
+            });
+        });
+
+        // Mouse movement
+        const mouse = new THREE.Vector2();
+        const raycaster = new THREE.Raycaster();
+
+        window.addEventListener('mousemove', (e) => {
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Smooth scroll
+            bookGroup.position.y += (targetY - bookGroup.position.y) * 0.1;
+
+            // Book hover effect
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(books.map(b => b.children[0]));
+
+            books.forEach((book, index) => {
+                const bookMesh = book.children[0];
+                const targetZ = intersects.find(i => i.object === bookMesh) ? 1.5 : 0;
+                
+                bookMesh.position.z += (targetZ - bookMesh.position.z) * 0.1;
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        // Handle resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Hide loading
+        setTimeout(() => {
+            document.getElementById('loading').style.display = 'none';
+        }, 500);
+
+        // Initialize
+        updateNavigation(0);
+        animate();
+    </script>
+</body>
+</html>
