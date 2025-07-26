@@ -90,16 +90,6 @@
             top: -12px;
             bottom: -12px;
             right: -10px;
-        }   opacity: 0.5;
-        }
-
-        .nav-bar::before {
-            content: '';
-            position: absolute;
-            left: 0;
-            top: -10px;
-            bottom: -10px;
-            right: 0;
         }
 
         .nav-bar.active {
@@ -435,50 +425,102 @@
         let currentSection = 0;
         let targetY = 0;
         let scrollProgress = 0;
-        let hoveredBar = -1;
+        let mouseYOnNav = -1;
+        let hoveredBarIndex = -1;
+        let isHoveringNav = false;
 
-        function updateNavigation(section, hoverIndex = -1) {
+        function updateNavigation(section) {
             const navBars = document.querySelectorAll('.nav-bar');
+            const navContainer = document.querySelector('.nav-indicators');
+            const navRect = navContainer.getBoundingClientRect();
             
             navBars.forEach((bar, index) => {
                 bar.classList.remove('active', 'hover', 'nearby');
                 
-                // Current active book
-                if (index === section) {
-                    bar.classList.add('active');
+                let intensity = 0;
+                let shouldLight = false;
+                
+                if (!isHoveringNav) {
+                    // Not hovering nav - only light up current section
+                    if (index === section) {
+                        shouldLight = true;
+                        intensity = 1;
+                        bar.classList.add('active');
+                    } else {
+                        intensity = 0.3;
+                    }
+                } else {
+                    // Hovering nav - calculate gradient effect
+                    const barRect = bar.getBoundingClientRect();
+                    const barCenterY = barRect.top + barRect.height / 2;
+                    
+                    // Only light up current section and hovered bar
+                    if (index === section) {
+                        shouldLight = true;
+                        intensity = 1;
+                        bar.classList.add('active');
+                    } else if (index === hoveredBarIndex) {
+                        shouldLight = true;
+                        intensity = 0.9;
+                    } else {
+                        // Gradient effect for other bars
+                        const mouseDistance = Math.abs(barCenterY - mouseYOnNav);
+                        intensity = Math.max(0.3, 0.3 + (1 - mouseDistance / 150) * 0.4);
+                    }
                 }
                 
-                // Hovered bar
-                if (index === hoverIndex) {
-                    bar.classList.add('hover');
+                // Apply styles
+                bar.style.opacity = intensity;
+                bar.style.width = shouldLight ? '50px' : `${35 + (intensity - 0.3) * 15}px`;
+                bar.style.height = shouldLight ? '2px' : '1px';
+                bar.style.background = shouldLight ? '#f0f0f0' : '#4a4a4a';
+                
+                if (shouldLight) {
+                    bar.style.boxShadow = '0 0 15px rgba(240, 240, 240, 0.5)';
+                } else {
+                    bar.style.boxShadow = 'none';
                 }
                 
-                // Gradient effect based on distance
-                const distance = Math.abs(index - section);
-                const hoverDistance = hoverIndex >= 0 ? Math.abs(index - hoverIndex) : Infinity;
-                const minDistance = Math.min(distance, hoverDistance);
-                
-                if (minDistance === 1) {
-                    bar.classList.add('nearby');
-                }
-                
-                // Adjust opacity based on distance
-                if (minDistance <= 2 && minDistance > 0) {
-                    bar.style.opacity = 0.6 + (0.4 / (minDistance + 1));
-                    bar.style.width = `${40 - minDistance * 3}px`;
+                // Show title ONLY for the specifically hovered bar
+                const titleElement = bar.querySelector('.book-title');
+                if (titleElement) {
+                    titleElement.style.opacity = index === hoveredBarIndex ? 1 : 0;
                 }
             });
         }
 
-        // Nav bar hover effects
+        // Track mouse position over nav area
+        document.querySelector('.nav-indicators').addEventListener('mousemove', (e) => {
+            mouseYOnNav = e.clientY;
+            isHoveringNav = true;
+            updateNavigation(currentSection);
+        });
+
+        document.querySelector('.nav-indicators').addEventListener('mouseleave', () => {
+            mouseYOnNav = -1;
+            hoveredBarIndex = -1;
+            isHoveringNav = false;
+            updateNavigation(currentSection);
+        });
+
+        // Individual bar hover tracking
         document.querySelectorAll('.nav-bar').forEach((bar, index) => {
             bar.addEventListener('mouseenter', () => {
-                hoveredBar = index;
-                updateNavigation(currentSection, hoveredBar);
+                hoveredBarIndex = index;
+                updateNavigation(currentSection);
             });
             
             bar.addEventListener('mouseleave', () => {
-                hoveredBar = -1;
+                hoveredBarIndex = -1;
+                updateNavigation(currentSection);
+            });
+        });
+
+        // Navigation click
+        document.querySelectorAll('.nav-bar').forEach((bar, index) => {
+            bar.addEventListener('click', () => {
+                currentSection = index;
+                targetY = books[currentSection].userData.baseY;
                 updateNavigation(currentSection);
             });
         });
